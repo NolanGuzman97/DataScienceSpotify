@@ -1,5 +1,7 @@
 ---
-title: "FinalProject"
+title: "Predicting .. from Spotify Music"
+author: Alyssia Goodwin & Nolan Guzman & Arthur Diaz
+date: "May 3, 2018"
 output: html_document
 ---
 
@@ -10,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ## R Markdown
 
 
-```{r cars}
+```{r}
 dat=read.csv("data.csv")
 dat$X = NULL
 dat$loudness=abs(dat$loudness)
