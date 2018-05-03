@@ -15,15 +15,33 @@ knitr::opts_chunk$set(echo = TRUE)
 dat=read.csv("data.csv")
 dat$X = NULL
 dat$loudness=abs(dat$loudness)
+<<<<<<< Updated upstream
 dat$song_title = NULL
 ```
 
 #Data Exploration
 
 ```{r}
+=======
+dat$song_title=NULL
+>>>>>>> Stashed changes
 summary(dat)
 ```
 
 
+<<<<<<< Updated upstream
 
 
+=======
+```{r, echo=TRUE}
+fit=lm(danceability ~ acousticness+duration_ms+energy+instrumentalness+liveness+loudness+speechiness+tempo+valence, data=dat)
+summary(fit)
+
+
+plot(density(dat$danceability),col="red",pch=16,main="Density of Danceability")
+lines(density(dat$energy),col="green")
+lines(density(dat$liveness),col="blue")
+legend("topright",legend=c("Dance","Energy","Liveness"),col=c("Red","Blue","Green"),lty=1)
+
+```
+>>>>>>> Stashed changes
