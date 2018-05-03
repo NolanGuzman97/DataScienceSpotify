@@ -24,21 +24,26 @@ We are using the "Now That's What I Call Music(U.S. releases)" data set from Kag
 Looking at the data there does not seem to be any null data within the database. From looking at the database it deo
 >>>>>>> Stashed changes
 ```{r}
+library(rpart)
+library(rpart.plot)
+library(maptree)
+library(e1071)
+# the following utility files can be found attached to the assignment
+source("https://raw.githubusercontent.com/grbruns/cst383/master/lin-regr-util.R")
+source("https://raw.githubusercontent.com/grbruns/cst383/master/class-util.R")
+
 dat=read.csv("data.csv")
 
 sum(is.null(dat))
 dat$X = NULL
 dat$loudness=abs(dat$loudness)
-<<<<<<< Updated upstream
 dat$song_title = NULL
 ```
 
 #Data Exploration
 
 ```{r}
-=======
 dat$song_title=NULL
->>>>>>> Stashed changes
 summary(dat)
 ```
 
@@ -61,12 +66,31 @@ plot(density(dat$energy))
 fit=lm(danceability ~ acousticness+duration_ms+energy+instrumentalness+liveness+loudness+speechiness+tempo+valence, data=dat)
 summary(fit)
 
-
-plot(density(dat$danceability),col="red",pch=16,main="Density of Danceability")
+par(mfrow=c(2,2))
+plot(density(dat$danceability),col="red",main="Density of Features")
 lines(density(dat$energy),col="green")
 lines(density(dat$liveness),col="blue")
+<<<<<<< HEAD
 legend("topright",legend=c("Dance","Energy","Liveness"),col=c("Red","Blue","Green"),lty=1)
 >>>>>>> c0fd5921c33641925f5beaee8dc3872b71c00bf9
+=======
+legend("topright",legend=c("Dance","Energy","Liveness"),col=c("Red","Blue","Green"),lty=1,cex=.7)
+
+plot(ecdf(dat$danceability),col="red",main="ECDF of Features")
+lines(ecdf(dat$energy),col="green")
+lines(ecdf(dat$liveness),col="blue")
+legend("bottomright",legend=c("Dance","Energy","Liveness"),col=c("Red","Blue","Green"),lty=1,cex=.7)
+
+plot(danceability ~ liveness,data=dat, col="red",main="Danceability by Liveness")
+plot(danceability ~ energy, data=dat, col="red",main="Danceability by Energy")
+>>>>>>> 582fde2423874e0e4e8b15278ac8d4109e4d641e
 
 ```
->>>>>>> Stashed changes
+
+```{r,echo=TRUE}
+set.seed(132)
+split = split_data(heart)
+tr_dat = split[[1]]
+te_dat = split[[2]]
+
+```
