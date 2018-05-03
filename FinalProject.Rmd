@@ -9,12 +9,21 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
+#Data Input and Preprocessing 
 
 ```{r}
 dat=read.csv("data.csv")
 dat$X = NULL
 dat$loudness=abs(dat$loudness)
+dat$song_title = NULL
+```
+
+#Data Exploration
+
+```{r}
 summary(dat)
 ```
+
+
+
+
