@@ -89,8 +89,17 @@ plot(danceability ~ energy, data=dat, col="red",main="Danceability by Energy")
 
 ```{r,echo=TRUE}
 set.seed(132)
-split = split_data(heart)
+split = split_data(dat)
 tr_dat = split[[1]]
 te_dat = split[[2]]
+
+fit=lm(danceability ~ liveness + energy, data=tr_dat)
+predicts=predict(fit, te_dat)
+actual=te_dat$danceability
+
+rng=range(c(predicts,actual))
+plot(actual ~ predicts, pch=20, xlim=rng, ylim=rng, main="Predicted Danceablity Vs. Actual")
+abline(fit,col="red",lty=2)
+summary(fit)
 
 ```
