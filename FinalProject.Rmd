@@ -22,7 +22,7 @@ We are using the "Now That's What I Call Music(U.S. releases)" data set from Kag
 ## Preprocessing 
 
 Looking at the data there does not seem to be any null data within the database. From looking at the database it deo
->>>>>>> Stashed changes
+
 ```{r}
 library(rpart)
 library(rpart.plot)
@@ -38,6 +38,17 @@ sum(is.null(dat))
 dat$X = NULL
 dat$loudness=abs(dat$loudness)
 dat$song_title = NULL
+dat$instrumentalness = NULL
+
+dat$danceability=dat$danceability*100
+dat$energy=dat$energy*100
+dat$acousticness=dat$acousticness*100
+dat$liveness=dat$liveness*100
+dat$valence=dat$valence*100
+dat$speechiness=dat$speechiness*100
+
+
+
 ```
 
 #Data Exploration
@@ -48,12 +59,7 @@ summary(dat)
 ```
 
 
-<<<<<<< Updated upstream
-
-
-=======
-<<<<<<< HEAD
-```{r}
+```{r,echo=TRUE}
 
 plot(dat$tempo ~ dat$speechiness)
 plot(dat)
@@ -61,7 +67,8 @@ plot(dat)
 plot(dat$energy~dat$loudness)
 plot(dat$acousticness~dat$loudness)
 plot(density(dat$energy))
-=======
+```
+
 ```{r, echo=TRUE}
 fit=lm(danceability ~ acousticness+duration_ms+energy+instrumentalness+liveness+loudness+speechiness+tempo+valence, data=dat)
 summary(fit)
@@ -70,36 +77,76 @@ par(mfrow=c(2,2))
 plot(density(dat$danceability),col="red",main="Density of Features")
 lines(density(dat$energy),col="green")
 lines(density(dat$liveness),col="blue")
-<<<<<<< HEAD
-legend("topright",legend=c("Dance","Energy","Liveness"),col=c("Red","Blue","Green"),lty=1)
->>>>>>> c0fd5921c33641925f5beaee8dc3872b71c00bf9
-=======
-legend("topright",legend=c("Dance","Energy","Liveness"),col=c("Red","Blue","Green"),lty=1,cex=.7)
+
+legend("topright",legend=c("Dance","Energy","Liveness"),col=c("Red","Green","Blue"),lty=1,cex=.7)
 
 plot(ecdf(dat$danceability),col="red",main="ECDF of Features")
 lines(ecdf(dat$energy),col="green")
 lines(ecdf(dat$liveness),col="blue")
-legend("bottomright",legend=c("Dance","Energy","Liveness"),col=c("Red","Blue","Green"),lty=1,cex=.7)
+legend("bottomright",legend=c("Dance","Energy","Liveness"),col=c("Red","Green","Blue"),lty=1,cex=.7)
 
-plot(danceability ~ liveness,data=dat, col="red",main="Danceability by Liveness")
-plot(danceability ~ energy, data=dat, col="red",main="Danceability by Energy")
->>>>>>> 582fde2423874e0e4e8b15278ac8d4109e4d641e
+plot(danceability ~ energy, data=dat, col="red",main="Danceability by Speechiness")
+plot(danceability ~ liveness, data=dat, col="red",main="Danceability by Liveness")
 
 ```
 
 ```{r,echo=TRUE}
-set.seed(132)
 split = split_data(dat)
 tr_dat = split[[1]]
 te_dat = split[[2]]
 
-fit=lm(danceability ~ liveness + energy, data=tr_dat)
+fit=lm(danceability ~ energy+liveness, data=tr_dat)
 predicts=predict(fit, te_dat)
 actual=te_dat$danceability
 
-rng=range(c(predicts,actual))
-plot(actual ~ predicts, pch=20, xlim=rng, ylim=rng, main="Predicted Danceablity Vs. Actual")
-abline(fit,col="red",lty=2)
+
+plot(actual ~ predicts, pch=20, main="Predicted Danceablity Vs. Actual",col="red")
+abline(fit,col="black",lty=2)
+
+```
+
+```{r, echo=TRUE}
+par(mfrow=c(2,2))
+plot(fit)
 summary(fit)
+mse=mean((actual-predicts)^2)
+rmse=sqrt(mse)
+rmse
+```
+
+```{r, echo=TRUE}
+te_dat$artist=NULL
+te_dat$key=NULL
+te_dat$mode=NULL
+te_dat$target=NULL
+te_dat$time_signature=NULL
+te_dat$duration_ms=NULL
+te_dat$tempo=NULL
+library(cluster)
+
+par(mfrow=c(1,2))
+hc=hclust(dist(te_dat),method="complete")
+clusters=cutree(hc,10)
+cols=rainbow(10)[clusters]
+plot(danceability ~ energy+liveness,data=te_dat,col=cols,pch=16)
+
+fit=kmeans(te_dat,10)
+fit$betweenss/fit$totss
+
+sli=silhouette(fit$cluster,dist(te_dat))
+mean(sil[,3])
+
+hc=hclust(dist(te_dat),method="complete")
+clusters=cutree(hc,100)
+cols=rainbow(100)[clusters]
+plot(danceability ~ energy+liveness,data=te_dat,col=cols,pch=16)
+
+fit2=kmeans(te_dat,100)
+fit2$betweenss/fit2$totss
+
+sil2=silhouette(fit2$cluster,dist(te_dat))
+mean(sil2[,3])
+
+
 
 ```
