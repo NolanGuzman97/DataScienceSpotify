@@ -28,6 +28,8 @@ library(rpart)
 library(rpart.plot)
 library(maptree)
 library(e1071)
+library(cluster)
+
 # the following utility files can be found attached to the assignment
 source("https://raw.githubusercontent.com/grbruns/cst383/master/lin-regr-util.R")
 source("https://raw.githubusercontent.com/grbruns/cst383/master/class-util.R")
@@ -46,8 +48,6 @@ dat$acousticness=dat$acousticness*100
 dat$liveness=dat$liveness*100
 dat$valence=dat$valence*100
 dat$speechiness=dat$speechiness*100
-
-
 
 ```
 
@@ -70,7 +70,8 @@ plot(density(dat$energy))
 ```
 
 ```{r, echo=TRUE}
-fit=lm(danceability ~ acousticness+duration_ms+energy+instrumentalness+liveness+loudness+speechiness+tempo+valence, data=dat)
+fit=lm(danceability ~ acousticness+energy+liveness+loudness+speechiness+valence, data=dat)
+
 summary(fit)
 
 par(mfrow=c(2,2))
@@ -115,6 +116,7 @@ rmse
 ```
 
 ```{r, echo=TRUE}
+
 te_dat$artist=NULL
 te_dat$key=NULL
 te_dat$mode=NULL
@@ -122,31 +124,54 @@ te_dat$target=NULL
 te_dat$time_signature=NULL
 te_dat$duration_ms=NULL
 te_dat$tempo=NULL
-library(cluster)
 
 par(mfrow=c(1,2))
 hc=hclust(dist(te_dat),method="complete")
 clusters=cutree(hc,10)
 cols=rainbow(10)[clusters]
-plot(danceability ~ energy+liveness,data=te_dat,col=cols,pch=16)
+plot(danceability ~ energy,data=te_dat,col=cols,pch=16,main="Danceability by Energy, n=10")
+plot(danceability ~ liveness,data=te_dat,col=cols,pch=16,main="Danceability by Liveness, n=10")
 
 fit=kmeans(te_dat,10)
+cat("Betweenss of fit: ",fit$betweenss)
+cat("\nTotss of fit: ",fit$totss)
 fit$betweenss/fit$totss
 
-sli=silhouette(fit$cluster,dist(te_dat))
+sil=silhouette(fit$cluster,dist(te_dat))
 mean(sil[,3])
 
 hc=hclust(dist(te_dat),method="complete")
 clusters=cutree(hc,100)
 cols=rainbow(100)[clusters]
-plot(danceability ~ energy+liveness,data=te_dat,col=cols,pch=16)
+plot(danceability ~ energy,data=te_dat,col=cols,pch=16,main="Danceability by Energy, n=100")
+plot(danceability ~ liveness,data=te_dat,col=cols,pch=16,main="Danceability by Liveness, n=100")
 
 fit2=kmeans(te_dat,100)
+
+cat("\nBetweenss of fit: ",fit$betweenss)
+cat("\nTotss of fit: ",fit$totss)
 fit2$betweenss/fit2$totss
 
 sil2=silhouette(fit2$cluster,dist(te_dat))
 mean(sil2[,3])
 
+```
 
+```{r}
+fit = rpart(danceability ~ energy +liveness, data = tr_dat)
+prp(fit, extra=1, varlen=-10, main="Regression Tree for Danceability (tr_dat)",box.col= "green")
 
+fit2 = rpart(danceability ~ energy +liveness, data = te_dat)
+prp(fit2, extra=1, varlen=-10, main="Regression Tree for Danceability (te_dat)",box.col= "green")
+```
+
+```{r}
+predicted = predict(fit, te_dat)
+errors = te_dat$danceability - predicted
+rmse = sqrt(mean(errors^2))
+plot_predict_actual(predicted, actual, 2, "Regression Tree Danceablility Prediction")
+```
+
+```{r}
+hist(errors, col = "red4", main = "Histogram of Errors, Regression Tree")
 ```
