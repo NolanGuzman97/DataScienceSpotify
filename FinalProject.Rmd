@@ -219,7 +219,7 @@ lines(c(rang[1], rang[2]),
 
 ##Diagnostic Plots Model 2
 
-Our diagnostic plots perform very well, showing a better horizontal line in the Residual Vs. Fitted plot, and the Normal Q-Q shows very good grouping on the line. 
+Our diagnostic plots perform very well, showing a better horizontal line in the Residual Vs. Fitted plot, and the Normal Q-Q shows very good grouping on the line. Our RMSE was also better, with a value of 14, certainly an improvement compared to model 1.
 ```{r, echo=TRUE}
 
 par(mfrow=c(2,2))
@@ -230,8 +230,9 @@ rmse1=sqrt(mse1)
 cat("Root Mean Square: ",rmse1)
 ```
 
+##Cluster Regression Model 2
 
-From the graphs exploring the tree of the data of Valence and Energy to danceability using testing data and training and seeing the comparison of them. 
+Cluster regression failed to yield any substantial improvement from model 1. Again with cluster size 10, we had a strong betweenss/totss around .73 but a weak silhouette width of .21. Using a more dramatic cluster of 100, we see large improvement of betweenss/totss around .93 but it did nothing to help silhouette width with the value being .21 again.
 ```{r,echo=TRUE}
 
 par(mfrow=c(1,2))
@@ -266,12 +267,15 @@ cat("Silhouette Width",mean(sil2[,3]))
 
 ```
 
+##Regression Tree Model 2
+Looking at our regression tree, valence is our main root, showing that given valence is less than 41, we predict dancibility to be low and vice versa. Energy on the other hand, helps to fine tune our prediction as children of our root. Looking at our actual vs predicted plot, we see that our groupings are better centralized to our line comapared to model 1. Checking the RMSE, we see the value is 13, our lowest RMSE value of the plots we have produced. We verified our RMSE by looking at a histogram of our errors, which shows a normal distribution with a majority of our data + or - 13 of the mean.
+
 ```{r,echo=TRUE}
 fit5 = rpart(danceability ~ energy +valence, data = tr_dat)
 prp(fit5, extra=1, varlen=-10, main="Regression Tree for Danceability (tr_dat)",box.col= "green")
-fit6 = rpart(danceability ~ energy +valence, data = te_dat)
-prp(fit6, extra=1, varlen=-10, main="Regression Tree for Danceability (te_dat)",box.col= "green")
+
 ```
+
 ```{r,echo=TRUE}
 predicted = predict(fit5, te_dat)
 errors = te_dat$danceability - predicted
