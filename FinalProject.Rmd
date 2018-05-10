@@ -1,0 +1,359 @@
+---
+title: "Predicting Danceability from Spotify Music"
+author: Alyssia Goodwin, Nolan Guzman & Arthur Diaz
+date: "May 3, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Intro
+
+We are using the "Now That's What I Call Music(U.S. releases)" data set from Kaggle to predict the danceability of a song. Danceability is described with how much a song will get people to dance from the tempo, rhythm stability, beat, and regularity. The scale of danceability ranges from 0 to 1, 0 being the least danceable while 1 is the most danceable song. 
+
+
+
+## Preprocessing 
+
+Looking at our data, we found that a majority of our data is numerical with some factors. In total, we have 2017 rows to work with and no NA or empty values so we did not need to clean our data in that regard. Further investigating the numerical data, we found that many of our values were between 0 and 1. For the purpose of readability, we decided to scale our data to be between 1 and 100. We also factored out song title and artist due to there being too many unique values, leaving them to be pad predictors and useless features. As for loudness and instrumentalness, loudness had a large variance that left it to be unreliable, and instrumentlness contained substantially small values, even when scaled. 
+
+```{r,echo=TRUE}
+library(rpart)
+library(rpart.plot)
+library(maptree)
+library(e1071)
+library(cluster)
+
+# the following utility files can be found attached to the assignment
+source("https://raw.githubusercontent.com/grbruns/cst383/master/lin-regr-util.R")
+source("https://raw.githubusercontent.com/grbruns/cst383/master/class-util.R")
+
+dat=read.csv("data.csv")
+
+sum(is.null(dat))
+dat$X = NULL
+dat$loudness = NULL
+dat$song_title = NULL
+dat$artist = NULL
+dat$instrumentalness = NULL
+
+dat$danceability=dat$danceability*100
+dat$energy=dat$energy*100
+dat$acousticness=dat$acousticness*100
+dat$liveness=dat$liveness*100
+dat$valence=dat$valence*100
+dat$speechiness=dat$speechiness*100
+
+```
+
+#Data Exploration 
+
+Given mostly numerical data, we decided to use linear regression as our supervised learning. Initially, we found
+that the features interact very well with each other. However, this did not help us to determine what would be the best features. Thus we decided to pick two features that we felt coincide with each other. Using density plot, ECDF plot, and scatter plots we found a strong  positive correlation between danceability and energy. Whereas liveness was the opposite with a strong negative correlation with danceability. With these results, we decided to proceed being that we were interested in seeing how a strong negative and positive correlation would work in predicting danceability.
+
+```{r, echo=TRUE}
+fit=lm(danceability ~ acousticness+energy+liveness+speechiness+valence, data=dat)
+
+summary(fit)
+
+par(mfrow=c(2,2))
+plot(density(dat$danceability),col="red",main="Density of Features", ylim = c(0,.07))
+lines(density(dat$energy),col="green")
+lines(density(dat$liveness),col="blue")
+
+legend("topright",legend=c("Dance","Energy","Liveness"),col=c("Red","Green","Blue"),lty=1,cex=.7)
+
+plot(ecdf(dat$danceability),col="red",main="ECDF of Features")
+lines(ecdf(dat$energy),col="green")
+lines(ecdf(dat$liveness),col="blue")
+legend("bottomright",legend=c("Dance","Energy","Liveness"),col=c("Red","Green","Blue"),lty=1,cex=.7)
+
+plot(danceability ~ energy, data=dat, col="red",main="Danceability by Energy")
+plot(danceability ~ liveness, data=dat, col="red",main="Danceability by Liveness")
+
+```
+
+##Linear Regression Model 1
+
+After training our new fit line with energy and liveness as features, we saw weak but positive trend. Our line seems to be a good indicator as to where a majority of our data is. However, we found there to be some variance given the wide spread of values. 
+
+```{r,echo=TRUE}
+
+set.seed(123)
+split = split_data(dat)
+tr_dat = split[[1]]
+te_dat = split[[2]]
+
+fit1=lm(danceability ~ energy+liveness, data=tr_dat)
+predicts=predict(fit1, te_dat)
+actual=te_dat$danceability
+rng=range(c(predicts,actual))
+
+plot(actual ~ predicts, pch=20, main="Predicted Danceablity Vs. Actual",col="red")
+lines(c(rng[1],rng[2]),c(rng[1],rng[2]),lty=2,col="blue",lwd=1.5)
+
+```
+
+##Diagnostic Plots Model 1
+
+We turned to our diagnostic plots to find if there were any abnormalities in our fit. Looking at our residuals vs fitted line we found that it was mostly a horizontal line and the normal Q-Q plot showed a lot of points on the line. So even if we had a lot of erratic points, we know that our data doesn't suffer from over fitting, variance, or bias. After checking our diagnostic plots, we checked our fit to see how well we predicted with the training data. Surprisingly, liveness was a much better feature in this fit even though energy had seemed to correlate well with danceability in our data exploration. Checking our RMSE, our value is 16, which is very low, indicating that our predictions are quite accurate.
+
+```{r, echo=TRUE}
+
+par(mfrow=c(2,2))
+plot(fit1)
+summary(fit1)
+mse=mean((actual-predicts)^2)
+rmse=sqrt(mse)
+cat("Root Mean Square: ",rmse)
+
+```
+
+##Cluster Regression Model 1
+
+For our unsupervised plot, we wanted to use cluster regression given that our data exploration showed strong correlations, leading us to believe that the data may cluster well. We started with a fairly small cluster of 10 to get a baseline. Visually we see that the clusters group well. Checking our totss/betweenss we have a pretty strong grouping of points. However, after running our silhouette width is substantially low around .18 to .21, giving the impression of no significant structure. Even after exaggerating our cluster, our silhouette width did not improve,given our totss/betweenss did.
+
+```{r, echo=TRUE}
+
+te_dat$artist=NULL
+te_dat$key=NULL
+te_dat$mode=NULL
+te_dat$target=NULL
+te_dat$time_signature=NULL
+te_dat$duration_ms=NULL
+te_dat$tempo=NULL
+
+par(mfrow=c(1,2))
+hc=hclust(dist(te_dat),method="complete")
+clusters=cutree(hc,10)
+cols=rainbow(10)[clusters]
+plot(danceability ~ energy,data=te_dat,col=cols,pch=16,main="Danceability by Energy, n=10")
+plot(danceability ~ liveness,data=te_dat,col=cols,pch=16,main="Danceability by Liveness, n=10")
+
+fit2=kmeans(te_dat,10)
+cat("Betweenss of fit: ",fit2$betweenss)
+cat("Totss of fit: ",fit2$totss)
+cat("Betweenss/Totss", (fit2$betweenss/fit2$totss))
+
+sil=silhouette(fit2$cluster,dist(te_dat))
+cat("Silhouette Width", mean(sil[,3]))
+
+hc=hclust(dist(te_dat),method="complete")
+clusters=cutree(hc,100)
+cols=rainbow(100)[clusters]
+plot(danceability ~ energy,data=te_dat,col=cols,pch=16,main="Danceability by Energy, n=100")
+plot(danceability ~ liveness,data=te_dat,col=cols,pch=16,main="Danceability by Liveness, n=100")
+
+fit3=kmeans(te_dat,100)
+
+cat("Betweenss of fit: ",fit3$betweenss)
+cat("Totss of fit: ",fit3$totss)
+cat("Betweenss/Totss", (fit3$betweenss/fit3$totss))
+
+sil2=silhouette(fit3$cluster,dist(te_dat))
+cat("Silhouette Width",mean(sil2[,3]))
+
+```
+
+##Regression Tree Model 1
+
+Using regression tree, we wanted to see if energy was still a good feature like we had thought. Visually, our tree shows that energy is a very important feature in predicting danceability with a regression tree. To verify that the tree itself is a good fit, we look at our predicted vs actual values. Upon first look, our data is very spread out, much like our linear regression. However, our RMSE consistently falls between 14 and 16, indicating minimal error. This is further asserted through our histogram, showing that a majority of the errors do fall between about -16 and 16.
+
+```{r, echo=TRUE}
+fit = rpart(danceability ~ energy +liveness, data = tr_dat)
+prp(fit, extra=1, varlen=-10, main="Regression Tree for Danceability (tr_dat)",box.col= "green")
+
+```
+
+```{r, echo=TRUE}
+predicted = predict(fit, te_dat)
+errors = te_dat$danceability - predicted
+rmse = sqrt(mean(errors^2))
+plot_predict_actual(predicted, actual, 2, "Regression Tree Danceablility Prediction")
+cat("RMSE: ",rmse)
+```
+
+```{r, echo=TRUE}
+hist(errors, col = "red4", main = "Histogram of Errors, Regression Tree")
+```
+
+##Data Exploration Model 2
+
+Model 1 showed optimistic results, but there is still improvement that can be made. We decided to continue using energy out of curiosity to see if it does well given its strong correlation with danceability. To choose our next feature, we decided to look in depth to what our features meant. After some reading, we found that valence associates well with energy. Valence is a feature between 0 and 100 that gauges positiveness in a song, the more positive the song, the closer to 100 the value is. We felt that valence connects well with how energy, which is defined as measurement of intensity and activity. Exploring valence, we found that the distribution of points is very steady and quite linear as show by the density and ECDF.
+
+```{r, echo=TRUE}
+
+par(mfrow=c(2,2))
+plot(density(dat$danceability),col="red",main="Density of Features")
+lines(density(dat$energy),col="green")
+lines(density(dat$valence),col="blue")
+
+legend("topright",legend=c("Dance","Energy","Valence"),col=c("Red","Green","Blue"),lty=1,cex=.7)
+
+plot(ecdf(dat$danceability),col="red",main="ECDF of Features")
+lines(ecdf(dat$energy),col="green")
+lines(ecdf(dat$valence),col="blue")
+legend("bottomright",legend=c("Dance","Energy","Valence"),col=c("Red","Green","Blue"),lty=1,cex=.7)
+
+plot(danceability ~ energy, data=dat, col="red",main="Danceability by Energy")
+plot(danceability ~ valence, data=dat, col="red",main="Danceability by Valence")
+
+```
+
+##Linear Regression Model 2
+Plotting with our new features, we found the data to have a better positive correlation, but it contained a rather weak grouping when compared to our line. Our RMSE was also lower than model 1 with a value of 14 so we are seeing improvement with the valence feature
+
+
+```{r,echo=TRUE}
+fit4 = lm(danceability ~ energy+valence, data=tr_dat)
+predicts1 = predict(fit4, newdata=te_dat, type="response")
+actual1=te_dat$danceability
+rang = range(c(predicts1, actual1))
+par(mfrow=c(1,1))
+plot(predicts1 ~ actual1, main="Predicting Danceability using Energy and Valence", ylab = "Prediction", xlab="Actuals", col="red", pch=20)
+lines(c(rang[1], rang[2]),
+      c(rang[1], rang[2]), col="blue",lty=2)
+```
+
+##Diagnostic Plots Model 2
+
+Our diagnostic plots perform very well, showing a better horizontal line in the Residual Vs. Fitted plot, and the Normal Q-Q shows very good grouping on the line. 
+```{r, echo=TRUE}
+
+par(mfrow=c(2,2))
+plot(fit4)
+summary(fit4)
+mse1=mean((actual1-predicts1)^2)
+rmse1=sqrt(mse1)
+cat("Root Mean Square: ",rmse1)
+```
+
+
+From the graphs exploring the tree of the data of Valence and Energy to danceability using testing data and training and seeing the comparison of them. 
+```{r,echo=TRUE}
+
+par(mfrow=c(1,2))
+hc=hclust(dist(te_dat),method="complete")
+clusters=cutree(hc,10)
+cols=rainbow(10)[clusters]
+plot(danceability ~ energy,data=te_dat,col=cols,pch=16,main="Danceability by Energy, n=10")
+plot(danceability ~ valence,data=te_dat,col=cols,pch=16,main="Danceability by Valence, n=10")
+
+fit2=kmeans(te_dat,10)
+cat("Betweenss of fit: ",fit2$betweenss)
+cat("Totss of fit: ",fit2$totss)
+cat("Betweenss/Totss", (fit2$betweenss/fit2$totss))
+
+sil=silhouette(fit2$cluster,dist(te_dat))
+cat("Silhouette Width", mean(sil[,3]))
+
+hc=hclust(dist(te_dat),method="complete")
+clusters=cutree(hc,100)
+cols=rainbow(100)[clusters]
+plot(danceability ~ energy,data=te_dat,col=cols,pch=16,main="Danceability by Energy, n=100")
+plot(danceability ~ valence,data=te_dat,col=cols,pch=16,main="Danceability by Valence, n=100")
+
+fit3=kmeans(te_dat,100)
+
+cat("Betweenss of fit: ",fit3$betweenss)
+cat("Totss of fit: ",fit3$totss)
+cat("Betweenss/Totss", (fit3$betweenss/fit3$totss))
+
+sil2=silhouette(fit3$cluster,dist(te_dat))
+cat("Silhouette Width",mean(sil2[,3]))
+
+```
+
+```{r,echo=TRUE}
+fit5 = rpart(danceability ~ energy +valence, data = tr_dat)
+prp(fit5, extra=1, varlen=-10, main="Regression Tree for Danceability (tr_dat)",box.col= "green")
+fit6 = rpart(danceability ~ energy +valence, data = te_dat)
+prp(fit6, extra=1, varlen=-10, main="Regression Tree for Danceability (te_dat)",box.col= "green")
+```
+```{r,echo=TRUE}
+predicted = predict(fit5, te_dat)
+errors = te_dat$danceability - predicted
+rmse = sqrt(mean(errors^2))
+cat("RMSE: ",rmse)
+plot_predict_actual(predicted, actual, 2, "Regression Tree Danceablility Prediction")
+```
+
+```{r,echo=TRUE}
+hist(errors, col = "red4", main = "Histogram of Errors, Regression Tree")
+```
+
+##Logistic Regression
+With our linear regression, we found numerical features that predicted features quite well. However, we were curious to find if our best features from linear regression would work better in predicting a classifier. Being our danceability feature was numerical, we created a new feature called dance that would be 1 if it was considered danceable and 0 if it was not. We used 70 as our threshold for whether or not a value was danceable. On our initial fit, we found that both energy and valence were excellent predictors of dance.
+
+```{r,echo=TRUE}
+dat$dance=ifelse(dat$danceability>70,1,0)
+fit=glm(dance ~ energy + valence, data=dat,family=binomial)
+summary(fit)
+```
+
+##Accuracy
+
+Since our fit seemed to be very strong, we proceeded with training our data and making predictions. Our finding was that fit was very precise when predicting that a song was danceable. We saw only 5 predictions of 1 but our false predictions (predicting 0 when its actually 1) was 0. Majority of our predictions were predicting 0 so our accuracy will be heavily skewed toward the 0 prediction. Thus, our accuracy for the logistic regression was .65. Not particularly strong, but our features still indicate that they serve as good predictors/
+```{r,echo=TRUE}
+
+#dat$dance=as.factor(dat$dance)
+set.seed(123)
+split = split_data(dat)
+tr_dat = split[[1]]
+te_dat = split[[2]]
+
+fit=glm(dance ~ energy + valence,data=tr_dat,family=binomial)
+
+y=predict(fit,newdata=te_dat,type="response")
+predicts=as.numeric(y>.7)
+actuals=te_dat$dance
+table(predicts,actuals)
+cat("\nAccuracy of predictions: ",mean(predicts==actuals))
+
+```
+
+##More predictions
+
+Looking at our features independently, we make predictions to see which of our features are stronger for logistic regression. Valence was a large surprise, the fit line for valence was more curved, meaning that more of the data was closer to our prediction in comparison to energy(a predictor we believed correlated the best with danceability). 
+
+
+```{r, echo=TRUE}
+
+fit1=glm(dance ~ energy, data=dat, family=binomial)
+fit2=glm(dance ~ valence, data=dat, family=binomial)
+temp1=data.frame(energy=seq(min(dat$energy),max(dat$energy),10))
+temp2=data.frame(valence=seq(min(dat$valence),max(dat$valence),10))
+
+
+probs1=predict(fit1,newdata=temp1,type="response")
+probs2=predict(fit2,newdata=temp2,type="response")
+
+plot(dance ~ energy,data=tr_dat,col="red",pch=20,ylab="P(danceability)")
+lines(temp1$energy,probs1,col="blue",lwd=2)
+
+plot(dance ~ valence,data=tr_dat,col="red",pch=20,ylab="P(danceability)")
+lines(temp2$valence,probs2,col="blue",lwd=2)
+
+```
+
+##Double Density Plot
+
+Further diagnosing our logistic regression, we look at a double density plot. Our plot shows that a majority of our data was around .2 and mostly predicted correct as not danceable. For our danceable predictions, we such a much broader flatter peak, indicating that our predictions of danceable data actually has a large variance between .3 and .6. This isn't good because our threshold to classify as danceable is .7 so this conflicts with what we saw in our confusion matrix where we believed that our danceable predictions were very precise.
+
+```{r,echo=TRUE}
+
+fit.1=glm(dance ~ energy + valence, data=tr_dat,family=binomial)
+predicts=predict(fit.1,te_dat,type="response")
+actuals=te_dat$dance
+
+plot(density(predicts[actuals==1]),col="red",xlab="Logistic Regression output",main="Double Density of Energy and Valence",ylim=c(0,3.0))
+legend("topright",col=c("red","blue"),legend=c("Danceable","Not Danceable"),lty=1)
+lines(density(predicts[actuals==0]),col="blue",lwd=2)
+
+```
+
+##Conclusion
+
+After running 2 different features sets through linear regression, and our best predictors through logistic regression, we found that linear regression was much better at making predictions with this data set. What we found the most interesting, was that even when a feature seems to correlate well with the feature you are trying to predict, it doesn't mean that it is the best predictor. This was very apparent in feature set 1 where we found that liveness(a feature with strong negative correlation) was a better predictor than energy. In the second feature set, valence did seemed to have a weak positive correlation, but it did very well in predicting danceability. However, that may just be a testament to energy and valence just generally working well given how those features are derived. Given more time, we would have liked to have further tested valence with other features in linear regression as it did very well in our second model. 
